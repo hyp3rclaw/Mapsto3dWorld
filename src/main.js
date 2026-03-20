@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { initViewer, loadWorld } from './viewer.js';
+import { initViewer, loadWorld, enableMultiplayer, disableMultiplayer, getScene } from './viewer.js';
+import * as mp from './multiplayer/socket.js';
+import { addRemotePlayer, removeRemotePlayer, clearAllRemotePlayers, getRemotePlayerCount } from './multiplayer/players.js';
 
 let map;
 let selectionRect = null;
@@ -251,8 +253,13 @@ function startGeneration() {
     water: document.getElementById('water-toggle').checked,
   };
 
+  currentWorldSettings = settings;
   document.getElementById('viewer-placeholder').classList.add('hidden');
-  loadWorld(settings);
+  loadWorld(settings).then(() => {
+    if (!inRoom) {
+      mp.createRoom(settings, 'private', 'My World', 8);
+    }
+  });
 }
 
 // ════════════════════════════════════════
@@ -269,12 +276,222 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 // ════════════════════════════════════════
+//  Multiplayer
+// ════════════════════════════════════════
+let currentWorldSettings = null;
+let inRoom = false;
+
+function initMultiplayer() {
+  const overlay = document.getElementById('mp-modal-overlay');
+  const createModal = document.getElementById('mp-create-modal');
+  const codeModal = document.getElementById('mp-code-modal');
+  const joinModal = document.getElementById('mp-join-modal');
+
+  function showModal(modal) {
+    overlay.classList.remove('hidden');
+    [createModal, codeModal, joinModal].forEach((m) => m.classList.add('hidden'));
+    modal.classList.remove('hidden');
+  }
+  function hideModals() {
+    overlay.classList.add('hidden');
+    [createModal, codeModal, joinModal].forEach((m) => m.classList.add('hidden'));
+  }
+
+  // "Go Multiplayer" button in HUD (manual create, kept as fallback)
+  document.getElementById('btn-mp-start').addEventListener('click', () => showModal(createModal));
+
+  // "Join World" button in sidebar
+  document.getElementById('btn-join-world').addEventListener('click', () => {
+    showModal(joinModal);
+    document.querySelector('.mp-tab[data-tab="code"]').click();
+  });
+
+  // Max players slider label
+  document.getElementById('mp-max-players').addEventListener('input', (e) => {
+    document.getElementById('mp-max-label').textContent = e.target.value;
+  });
+
+  // ── Create room flow ──
+  document.getElementById('btn-mp-create-confirm').addEventListener('click', () => {
+    if (!currentWorldSettings) return;
+    const name = document.getElementById('mp-room-name').value || 'Unnamed World';
+    const visibility = document.getElementById('mp-visibility').value;
+    const maxPlayers = parseInt(document.getElementById('mp-max-players').value);
+    mp.createRoom(currentWorldSettings, visibility, name, maxPlayers);
+  });
+  document.getElementById('btn-mp-create-cancel').addEventListener('click', hideModals);
+
+  mp.on('room-created', ({ code }) => {
+    enableMultiplayer();
+    inRoom = true;
+    updateMpHud(code);
+    showSidebarCode(code);
+  });
+
+  document.getElementById('btn-mp-copy-code').addEventListener('click', () => {
+    const code = document.getElementById('mp-code-value').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      document.getElementById('btn-mp-copy-code').textContent = 'Copied!';
+      setTimeout(() => { document.getElementById('btn-mp-copy-code').textContent = 'Copy'; }, 1500);
+    });
+  });
+
+  document.getElementById('btn-mp-code-close').addEventListener('click', hideModals);
+
+  // ── Join room flow ──
+  const tabs = document.querySelectorAll('.mp-tab');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('mp-tab-code').classList.toggle('hidden', tab.dataset.tab !== 'code');
+      document.getElementById('mp-tab-public').classList.toggle('hidden', tab.dataset.tab !== 'public');
+      if (tab.dataset.tab === 'public') mp.listPublicRooms();
+    });
+  });
+
+  document.getElementById('btn-mp-join-confirm').addEventListener('click', () => {
+    const code = document.getElementById('mp-join-code').value.trim();
+    const name = document.getElementById('mp-player-name').value.trim() || 'Player';
+    if (!code || code.length !== 4 || !/^\d{4}$/.test(code)) {
+      showJoinError('Enter a valid 4-digit room code');
+      return;
+    }
+    showJoinError('');
+    mp.joinRoom(code, name);
+  });
+
+  document.getElementById('btn-mp-join-cancel').addEventListener('click', hideModals);
+
+  mp.on('room-joined', async ({ settings, players }) => {
+    hideModals();
+
+    const app = document.getElementById('app');
+    app.classList.add('fullscreen');
+    isFullscreen = true;
+    document.getElementById('icon-expand').style.display = 'none';
+    document.getElementById('icon-shrink').style.display = '';
+
+    document.getElementById('viewer-placeholder').classList.add('hidden');
+    currentWorldSettings = settings;
+    enableMultiplayer();
+    inRoom = true;
+    await loadWorld(settings);
+
+    const s = getScene();
+    for (const [id, p] of Object.entries(players)) {
+      addRemotePlayer(id, p.name, p.color, s);
+    }
+  });
+
+  mp.on('mp-error', ({ message }) => {
+    showJoinError(message);
+  });
+
+  // ── Public rooms list ──
+  mp.on('public-rooms', (rooms) => {
+    const list = document.getElementById('mp-public-list');
+    if (rooms.length === 0) {
+      list.innerHTML = '<p class="mp-public-empty">No public worlds available</p>';
+      return;
+    }
+    list.innerHTML = rooms.map((r) => `
+      <div class="mp-public-room" data-code="${r.code}">
+        <div class="mp-public-name">${r.name}</div>
+        <div class="mp-public-info">${r.playerCount}/${r.maxPlayers} players</div>
+        <button class="btn btn-small mp-public-join" data-code="${r.code}">Join</button>
+      </div>
+    `).join('');
+    list.querySelectorAll('.mp-public-join').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const name = document.getElementById('mp-player-name-pub').value.trim() || 'Player';
+        mp.joinRoom(btn.dataset.code, name);
+      });
+    });
+  });
+
+  // ── Player events ──
+  mp.on('player-joined', ({ id, name, color }) => {
+    addRemotePlayer(id, name, color, getScene());
+    updatePlayerCount();
+  });
+
+  mp.on('player-left', ({ id }) => {
+    removeRemotePlayer(id, getScene());
+    updatePlayerCount();
+  });
+
+  // ── Leave room ──
+  document.getElementById('btn-mp-leave').addEventListener('click', () => {
+    mp.leaveRoom();
+    disableMultiplayer();
+    clearAllRemotePlayers(getScene());
+    inRoom = false;
+    document.getElementById('mp-hud').classList.add('hidden');
+    document.getElementById('btn-mp-leave').classList.add('hidden');
+    document.getElementById('btn-mp-start').classList.remove('hidden');
+    hideSidebarCode();
+  });
+}
+
+function showJoinError(msg) {
+  const el = document.getElementById('mp-join-error');
+  if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
+}
+
+let currentRoomCode = null;
+
+function showSidebarCode(code) {
+  const container = document.getElementById('mp-your-code');
+  const codeEl = document.getElementById('mp-sidebar-code');
+  const copyBtn = document.getElementById('btn-mp-sidebar-copy');
+
+  codeEl.textContent = code;
+  container.classList.remove('hidden');
+
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    });
+  };
+}
+
+function hideSidebarCode() {
+  document.getElementById('mp-your-code').classList.add('hidden');
+}
+
+function updateMpHud(code) {
+  currentRoomCode = code;
+  document.getElementById('mp-hud').classList.remove('hidden');
+  document.getElementById('mp-room-code').textContent = code;
+  document.getElementById('btn-mp-start').classList.add('hidden');
+  document.getElementById('btn-mp-leave').classList.remove('hidden');
+
+  const copyBtn = document.getElementById('btn-mp-hud-copy');
+  copyBtn.onclick = () => {
+    navigator.clipboard.writeText(code).then(() => {
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    });
+  };
+
+  updatePlayerCount();
+}
+
+function updatePlayerCount() {
+  document.getElementById('mp-player-count').textContent = `Players: ${getRemotePlayerCount() + 1}`;
+}
+
+// ════════════════════════════════════════
 //  Bootstrap
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   initViewer();
   initDivider();
+  initMultiplayer();
 
   document.getElementById('btn-apply-coords').addEventListener('click', applyManualCoords);
   document.getElementById('btn-generate').addEventListener('click', startGeneration);

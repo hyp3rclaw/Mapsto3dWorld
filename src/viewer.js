@@ -2,11 +2,15 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { fetchOSMData } from './osm/overpass.js';
 import { WorldGenerator } from './world/generator.js';
+import { sendPosition, getSocketId, on as mpOn } from './multiplayer/socket.js';
+import { updateRemotePositions, interpolateRemotePlayers } from './multiplayer/players.js';
 
 let camera, scene, renderer, controls;
 let world = null;
 let flyMode = false;
 let viewerReady = false;
+let mpActive = false;
+let positionTick = 0;
 
 const moveState = { forward: false, backward: false, left: false, right: false, up: false, down: false, sprint: false };
 let velocity = new THREE.Vector3();
@@ -22,6 +26,14 @@ const PLAYER_HEIGHT = 1.7;
 // ════════════════════════════════════════
 //  Public API  (called from main.js)
 // ════════════════════════════════════════
+
+export function getScene() { return scene; }
+export function getCamera() { return camera; }
+export function enableMultiplayer() {
+  mpActive = true;
+  mpOn('positions', (data) => updateRemotePositions(data, getSocketId(), scene));
+}
+export function disableMultiplayer() { mpActive = false; }
 
 export function initViewer() {
   const canvas = document.getElementById('viewer-canvas');
@@ -181,7 +193,19 @@ function animate() {
   if (controls.isLocked && world) {
     (flyMode ? updateFly : updateWalk)(delta);
     updateHUD();
+
+    if (mpActive) {
+      positionTick++;
+      if (positionTick % 4 === 0) {
+        const p = camera.position;
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        sendPosition(p.x, p.y, p.z, Math.atan2(dir.x, dir.z));
+      }
+    }
   }
+
+  if (mpActive) interpolateRemotePlayers(delta);
 
   renderer.render(scene, camera);
 }

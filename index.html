@@ -68,6 +68,19 @@
 
           <button id="btn-generate" class="btn btn-primary" disabled>Generate 3D World</button>
 
+          <div class="mp-sidebar-section">
+            <div class="mp-divider"></div>
+            <label>Multiplayer</label>
+            <div id="mp-your-code" class="mp-your-code hidden">
+              <span class="mp-your-code-label">Your Room Code</span>
+              <div class="mp-your-code-value">
+                <span id="mp-sidebar-code"></span>
+                <button id="btn-mp-sidebar-copy" class="btn btn-small">Copy</button>
+              </div>
+            </div>
+            <button id="btn-join-world" class="btn btn-mp">Join World</button>
+          </div>
+
           <div id="progress-container" class="hidden">
             <div id="progress-bar"><div id="progress-fill"></div></div>
             <p id="progress-text">Initializing...</p>
@@ -98,6 +111,15 @@
           <div id="crosshair">+</div>
           <div id="mode-indicator" class="walk">WALK</div>
           <div id="coords"></div>
+          <div id="mp-hud" class="hidden">
+            <div id="mp-room-code-box">
+              <span id="mp-room-code"></span>
+              <button id="btn-mp-hud-copy" title="Copy room code">Copy</button>
+            </div>
+            <div id="mp-player-count"></div>
+          </div>
+          <button id="btn-mp-start" class="mp-hud-btn hidden" title="Go Multiplayer">MP</button>
+          <button id="btn-mp-leave" class="mp-hud-btn mp-leave-btn hidden" title="Leave Room">Leave</button>
           <button id="btn-fullscreen" title="Toggle fullscreen (Tab)">
             <svg id="icon-expand" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8">
               <polyline points="6,2 2,2 2,6"/><polyline points="12,2 16,2 16,6"/>
@@ -123,6 +145,78 @@
 
         <canvas id="viewer-canvas"></canvas>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Multiplayer Modals ── -->
+  <div id="mp-modal-overlay" class="mp-overlay hidden">
+    <!-- Create Room Modal -->
+    <div id="mp-create-modal" class="mp-modal hidden">
+      <h2>Go Multiplayer</h2>
+      <div class="mp-field">
+        <label for="mp-room-name">Room Name</label>
+        <input type="text" id="mp-room-name" placeholder="My World" maxlength="30" />
+      </div>
+      <div class="mp-field">
+        <label for="mp-visibility">Visibility</label>
+        <select id="mp-visibility">
+          <option value="private">Private (code only)</option>
+          <option value="public">Public (listed in lobby)</option>
+        </select>
+      </div>
+      <div class="mp-field">
+        <label for="mp-max-players">Max Players: <span id="mp-max-label">8</span></label>
+        <input type="range" id="mp-max-players" min="2" max="10" value="8" />
+      </div>
+      <div class="mp-actions">
+        <button id="btn-mp-create-confirm" class="btn btn-primary">Create Room</button>
+        <button id="btn-mp-create-cancel" class="btn btn-small">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Room Code Display Modal -->
+    <div id="mp-code-modal" class="mp-modal hidden">
+      <h2>Room Created!</h2>
+      <p class="mp-code-label">Share this code with friends:</p>
+      <div class="mp-code-display">
+        <span id="mp-code-value"></span>
+        <button id="btn-mp-copy-code" class="btn btn-small">Copy</button>
+      </div>
+      <button id="btn-mp-code-close" class="btn btn-primary">Enter World</button>
+    </div>
+
+    <!-- Join Room Modal -->
+    <div id="mp-join-modal" class="mp-modal hidden">
+      <h2>Join World</h2>
+      <div class="mp-tabs">
+        <button class="mp-tab active" data-tab="code">Enter Code</button>
+        <button class="mp-tab" data-tab="public">Public Worlds</button>
+      </div>
+      <div id="mp-tab-code" class="mp-tab-content">
+        <div class="mp-field">
+          <label for="mp-join-code">Room Code</label>
+          <input type="text" id="mp-join-code" placeholder="1234" maxlength="4"
+                 style="letter-spacing:6px; font-size:1.4rem; text-align:center;" />
+        </div>
+        <div class="mp-field">
+          <label for="mp-player-name">Your Name</label>
+          <input type="text" id="mp-player-name" placeholder="Player" maxlength="16" />
+        </div>
+        <button id="btn-mp-join-confirm" class="btn btn-primary">Join</button>
+      </div>
+      <div id="mp-tab-public" class="mp-tab-content hidden">
+        <div id="mp-public-list" class="mp-public-list">
+          <p class="mp-public-empty">Loading...</p>
+        </div>
+        <div class="mp-field">
+          <label for="mp-player-name-pub">Your Name</label>
+          <input type="text" id="mp-player-name-pub" placeholder="Player" maxlength="16" />
+        </div>
+      </div>
+      <div class="mp-actions">
+        <button id="btn-mp-join-cancel" class="btn btn-small">Cancel</button>
+      </div>
+      <p id="mp-join-error" class="mp-error hidden"></p>
     </div>
   </div>
 
