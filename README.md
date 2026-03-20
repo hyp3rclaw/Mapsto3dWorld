@@ -4,6 +4,9 @@ Generate and explore Minecraft-style 3D voxel worlds from real-world OpenStreetM
 
 ![split-panel](https://img.shields.io/badge/layout-split--panel-blue) ![three.js](https://img.shields.io/badge/3D-three.js-green) ![leaflet](https://img.shields.io/badge/map-leaflet-orange) ![vite](https://img.shields.io/badge/build-vite-purple) ![multiplayer](https://img.shields.io/badge/multiplayer-socket.io-yellow)
 
+<img width="1917" height="873" alt="Screenshot 2026-03-20 122521" src="https://github.com/user-attachments/assets/7f123753-1fec-4560-acf9-bc40d34790b6" />
+
+
 ## Features
 
 - **Interactive map** — browse the world with Leaflet, draw a square or rectangle to select any area
