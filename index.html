@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maps to 3D World</title>
+  <link rel="stylesheet" href="/styles/main.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- ── Left panel: map + settings ── -->
+    <div id="left-panel">
+      <header id="header">
+        <h1>Maps to 3D World</h1>
+        <p class="subtitle">Select an area, then generate a Minecraft-style 3D world</p>
+      </header>
+
+      <div id="map-and-settings">
+        <div id="map"></div>
+        <div id="sidebar">
+          <h2>Settings</h2>
+
+          <div class="setting-group">
+            <label>Selection</label>
+            <p class="hint">Use the toolbar on the map to draw a square or rectangle.</p>
+            <div class="coord-inputs">
+              <div class="coord-row">
+                <label for="min-lat">Min Lat</label>
+                <input type="number" id="min-lat" step="0.0001" placeholder="48.8560" />
+              </div>
+              <div class="coord-row">
+                <label for="min-lng">Min Lng</label>
+                <input type="number" id="min-lng" step="0.0001" placeholder="2.2930" />
+              </div>
+              <div class="coord-row">
+                <label for="max-lat">Max Lat</label>
+                <input type="number" id="max-lat" step="0.0001" placeholder="48.8590" />
+              </div>
+              <div class="coord-row">
+                <label for="max-lng">Max Lng</label>
+                <input type="number" id="max-lng" step="0.0001" placeholder="2.2980" />
+              </div>
+            </div>
+            <button id="btn-apply-coords" class="btn btn-small">Apply Coordinates</button>
+          </div>
+
+          <div class="setting-group">
+            <label for="scale-select">Scale</label>
+            <select id="scale-select">
+              <option value="1" selected>1:1 (1 block = 1m)</option>
+              <option value="0.5">1:2 (1 block = 2m)</option>
+              <option value="2">2:1 (2 blocks = 1m)</option>
+            </select>
+          </div>
+
+          <div class="setting-group toggles-grid">
+            <label><input type="checkbox" id="terrain-toggle" checked /> Terrain</label>
+            <label><input type="checkbox" id="buildings-toggle" checked /> Buildings</label>
+            <label><input type="checkbox" id="roads-toggle" checked /> Roads</label>
+            <label><input type="checkbox" id="vegetation-toggle" checked /> Vegetation</label>
+            <label><input type="checkbox" id="water-toggle" checked /> Water</label>
+          </div>
+
+          <div id="bbox-info" class="bbox-info hidden">
+            <strong>Area:</strong> <span id="bbox-text"></span><br/>
+            <span id="bbox-size"></span>
+          </div>
+
+          <button id="btn-generate" class="btn btn-primary" disabled>Generate 3D World</button>
+
+          <div id="progress-container" class="hidden">
+            <div id="progress-bar"><div id="progress-fill"></div></div>
+            <p id="progress-text">Initializing...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Draggable divider ── -->
+    <div id="panel-divider" title="Drag to resize panels"></div>
+
+    <!-- ── Right panel: 3D viewer ── -->
+    <div id="right-panel">
+      <div id="viewer-wrapper">
+        <!-- Blocker overlay (click to enter pointer lock) -->
+        <div id="blocker">
+          <div id="instructions">
+            <p class="instructions-title">Click to explore</p>
+            <p class="controls-hint">
+              WASD = Move | Mouse = Look | Space = Jump/Up | Shift = Sprint<br/>
+              F = Fly Mode | Ctrl = Descend | ESC = Release
+            </p>
+          </div>
+        </div>
+
+        <!-- HUD elements -->
+        <div id="hud">
+          <div id="crosshair">+</div>
+          <div id="mode-indicator" class="walk">WALK</div>
+          <div id="coords"></div>
+          <button id="btn-fullscreen" title="Toggle fullscreen (Tab)">
+            <svg id="icon-expand" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polyline points="6,2 2,2 2,6"/><polyline points="12,2 16,2 16,6"/>
+              <polyline points="6,16 2,16 2,12"/><polyline points="12,16 16,16 16,12"/>
+            </svg>
+            <svg id="icon-shrink" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none">
+              <polyline points="2,6 6,6 6,2"/><polyline points="16,6 12,6 12,2"/>
+              <polyline points="2,12 6,12 6,16"/><polyline points="16,12 12,12 12,16"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading overlay inside viewer -->
+        <div id="loading-overlay" class="hidden">
+          <div id="loading-spinner"></div>
+          <p id="loading-text">Generating world...</p>
+        </div>
+
+        <!-- Placeholder when no world is generated -->
+        <div id="viewer-placeholder">
+          <p>Select an area on the map and click<br/><strong>Generate 3D World</strong></p>
+        </div>
+
+        <canvas id="viewer-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
